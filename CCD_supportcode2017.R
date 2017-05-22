@@ -1714,7 +1714,7 @@ compute_accuracy_metrices <- function(test_data,neural_result,gt_data,anomalythr
   colnames(agg_frame) <- c("actual_consump","upr","found_anom","gt_anom")
   
   df_days <- split.xts(agg_frame,f="days",k=1) # daywise dataframe
-  pastanomaly_vec <- as.vector("numeric") # keeps track of possi
+  #pastanomaly_vec <- as.vector("numeric") # keeps track of possi
   
   tp = vector('numeric');tn = vector('numeric');fp = vector('numeric');fn = vector('numeric')
   delta  <- 1 #counter
@@ -1754,7 +1754,7 @@ compute_accuracy_metrices <- function(test_data,neural_result,gt_data,anomalythr
   return(list(precison=precison,recall=recall,f_score=f_score))
 } # method ends
 
-note_f1_score_result <- funtion(){
+note_f1_score_result <- function() {
   # i repeated this sinnpet to save accuracy results on my notebook
   # required objects:
   # gt_data: eithe compute it online or read from direc as shown below
@@ -1767,7 +1767,7 @@ note_f1_score_result <- funtion(){
   neu_result <- fread(paste0(read_dir,file1))
   neural_result <- xts(neu_result[,2:NCOL(neu_result)],fasttime::fastPOSIXct(neu_result$Index)-19800)
   gt <- fread(paste0(gt_dir,file1))
-  gt_data <- convert gt to xts// during paper writing I took it online
+  gt_data <- xts(gt[,2:NCOL(gt)],fasttime::fastPOSIXct(gt$Index)-19800)
   
   dat_range <- "2014-07-01/2014-07-30 23:59:59"
   anomaly_window = 1 #CHANGE IT: CONTROLS SIZE OF RUNNING WINDOW
@@ -1777,4 +1777,53 @@ note_f1_score_result <- funtion(){
                                      neural_result[dat_range],
                                      gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window)
   }
+}
+
+call_energy_savings_script_dataport<- function() {
+  # this script calls all files in directory and computes energy wastage for each home
+  read_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_neural_results/"
+  gt_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_gt_results/"
+  fls <- list.files(read_dir,pattern="*.csv")
+  
+  for(i in 1:length(fls)){
+    file1 = fls[[i]]
+    neu_result <- fread(paste0(read_dir,file1))
+    neural_result <- xts(neu_result[,2:NCOL(neu_result)],fasttime::fastPOSIXct(neu_result$Index)-19800)
+    gt <- fread(paste0(gt_dir,file1))
+    gt_data <- xts(gt[,2:NCOL(gt)],fasttime::fastPOSIXct(gt$Index)-19800)
+    anomalywindow = 1
+    anomalythreshold_len <- 3
+    energy = compute_energy_savings(neural_result, gt_data, anomalythreshold_len=3,anomalywindow = 1)
+    print(energy)
+  }
+}
+compute_energy_savings <- function(neural_result,gt_data,anomalythreshold_len,anomalywindow) {
+  # this function computes the extra units consumed by a house
+  agg_data <- cbind(neural_result$upr,gt_data)
+  colnames(agg_data) <- c("upr","actual_consump","gt_anom")
+  agg_data$found_anom <- ifelse(agg_data$actual_consump > agg_data$upr,1,0)
+  
+  df_days <- split.xts(agg_data,f="days",k=1) # daywise dataframe
+  delta  <- 1 #counter
+  true_pos <- list()
+  for( i in 1:length(df_days)) {
+    # Loop j: Divides in terms of anomaly window [one hour or 2 hour etc]
+    day_hour <- split_hourwise(df_days[[i]],windowsize = anomaly_window)
+    for( j in 1:length(day_hour)) {
+      ob_len <- table(day_hour[[j]]$found_anom)
+      ob_len <- ifelse(is.na(as.numeric(ob_len['1'])),0,as.numeric(ob_len['1']))
+      if (ob_len >= anomalythreshold_len) {
+        # find only true positives
+        true_pos[[delta]] <- day_hour[[j]][day_hour[[j]]$gt_anom == day_hour[[j]]$found_anom  & day_hour[[j]]$found_anom ==1]
+        delta <- delta+1
+      } # if ends
+    } # j ends
+  } # day i ends
+  final_frame <- do.call(rbind,true_pos) 
+  final_frame$difference <- final_frame$actual_consump - final_frame$upr
+  # formula = sum(p*10*60)/3600
+  extra_energy_consump <- (sum(final_frame$difference) * 10 * 60)/3600 # total power * rate(10 mins) *60 seconds / 3600
+  extra_energy_units <- extra_energy_consump/1000
+  extra_energy_units
+  return(extra_energy_units)
 }
