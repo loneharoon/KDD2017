@@ -141,17 +141,27 @@ ampds <- function(){
   source("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/CCD_supportcode2017.R")
   file1 <- "ten_minutes_data.csv"
   df <- fread(paste0(path1,file1),header=TRUE, sep=",") # both power and weather data
-  df_sub <- xts(data.frame(df$WHE,df$temperature,df$humidity),as.POSIXct(strptime(df$timestamp,format="%Y-%m-%d %H:%M:%S"),origin="1970-01-01")) 
+  df_sub <- xts(data.frame(df$WHE,df$temperature,df$humidity),as.POSIXct(strptime(df$localminute,format="%Y-%m-%d %H:%M:%S"),origin="1970-01-01")) 
   colnames(df_sub) <- c("power","temperature","humidity")
   
   #appliance_features <- get_appliance_features(path1, file1)
   print(paste0("Data ","start: ",index(first(df_sub))," end: ",index(last(df_sub))))
   # Data available from April 2012 and 31 March 2014
-  train_data <- df_sub['2014-01-01/2014-01-15']
-  test_data <- df_sub['2014-01-16/2014-03-30']
+  train_data <- df_sub['2014-01-01/2014-01-31 23:59:59']
+  test_data <- df_sub['2014-02-01/2014-03-30 23:59:59']
   #regression_days <- sampled_ob['2014-06-26/2014-07-30']
-  reg_result <- regression_procedure(train_data,test_data,hourwindow = 6)
-  neural_result <- neuralnetwork_procedure(train_data,test_data,hourwindow = 6, daywindow = 15)
+  #reg_result <- regression_procedure(train_data,test_data,hourwindow = 6)
+  neural_result <- neuralnetwork_procedure(train_data,test_data,hourwindow = 6, daywindow = 30)
+  
+  savedir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/ampds_neural_results/"
+  # write.csv(fortify(neural_result),file=paste0(savedir,file1),row.names = FALSE)
+  
+  #ESTABLISH GROUND TRUTH
+  savedir_gt <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/ampds_gt_results/"
+  gt_data <- compute_groundtruth_main_ampds(df_sub,past_days = 6,weekday_context = FALSE)
+   # write.csv(fortify(gt_data),file=paste0(savedir_gt,file1),row.names = FALSE)
+  
+  
   
   ## STORE NEURAL RESULT IN A FILE
   comb_df <- cbind(test_data$power,neural_result)
@@ -204,34 +214,43 @@ ECO_prediction_without_occupancy <- function() {
   source("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/CCD_supportcode2017.R")
   day_pred_result <- list()
   
-  for (i in 4:length(fls)) {
-    file1 <- fls[1]
+  for (i in 1:length(fls)) {
+    file1 <- fls[5]
     data_ob <- create_weather_power_object_from_ECO_dataset(path1,file1,file2)
     #appliance_features <- get_appliance_features(path1, file1)
     print("DATA RANGES ARE:")
     print(paste0("Power data,","start: ",index(first(data_ob$power_data))," end: ",index(last(data_ob$power_data))))
     print(paste0("Weather data,","start: ",index(first(data_ob$weather_data))," end: ",index(last(data_ob$weather_data))))
     # USED DATA FROM 2012-08-01' to 2012-10-30
-    merge_start_date <- as.POSIXct(strptime('2012-07-15',format = "%Y-%m-%d"))
-    merge_end_date   <- as.POSIXct(strptime('2012-08-26',format = "%Y-%m-%d"))
+    merge_start_date <- as.POSIXct(strptime('2012-08-01',format = "%Y-%m-%d"))
+    merge_end_date   <- as.POSIXct(strptime('2012-10-30 23:59:59',format = "%Y-%m-%d"))
     confirm_validity(data_ob, merge_start_date, merge_end_date)
     my_range <- paste0(merge_start_date,'/',merge_end_date)
     
     sampled_ob <- combine_energy_weather_ECOdata(data_ob,my_range)
-    train_data <- sampled_ob['2012-07-15/2012-07-25']
-    test_data <- sampled_ob['2012-07-26/2012-08-05']
+    train_data <- sampled_ob['2012-08-01/2012-08-30 23:59:59']
+    test_data <- sampled_ob['2012-09-01/2012-10-29 23:59:59']
     #regression_days <- sampled_ob['2014-06-26/2014-07-30']
    # reg_result <- regression_procedure(train_data,test_data,hourwindow = 6)
   #  print("Regression done")
 
-    neural_result <- neuralnetwork_procedure(train_data,test_data,hourwindow = 6, daywindow = 15)
-    print("N-network done")
-    print_single_prediction_method_table(test_data, method_result = neural_result$fit)
-    plot_singlepredictor_graph(train_data,test_data,neural_result$fit)
-
-    l <- as.data.frame(plot_table(test_data,reg_result$fit,neural_result$fit,intent = "return"))
-    l$home <- strsplit(file1,'[.]')[[1]][1]
-    day_pred_result[[i]] <- l
+    neural_result <- neuralnetwork_procedure(train_data,test_data,hourwindow = 6, daywindow = 30)
+  savedir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/eco_neural_results/"
+    write.csv(fortify(neural_result),file=paste0(savedir,file1),row.names = FALSE)
+    
+    #ESTABLISH GROUND TRUTH
+    savedir_gt <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/eco_gt_results/"
+    gt_data <- compute_groundtruth_main_eco(sampled_ob,past_days = 6,weekday_context = TRUE)
+    write.csv(fortify(gt_data),file=paste0(savedir_gt,file1),row.names = FALSE)
+    
+    
+    # print("N-network done")
+    # print_single_prediction_method_table(test_data, method_result = neural_result$fit)
+    # plot_singlepredictor_graph(train_data,test_data,neural_result$fit)
+    # 
+    # l <- as.data.frame(plot_table(test_data,reg_result$fit,neural_result$fit,intent = "return"))
+    # l$home <- strsplit(file1,'[.]')[[1]][1]
+    # day_pred_result[[i]] <- l
   }
   agg_result <- do.call(rbind,day_pred_result)
   # write.csv(agg_result,file="prediction_result_eco_dataset.csv")
@@ -271,8 +290,9 @@ REFTI <- function() {
   source("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/CCD_supportcode2017.R")
   day_pred_result <- list()
   
-  for (i in 1:length(fls)) {
+  for (i in 12:length(fls)) {
     # House 11 has data from 3 june
+    
     file1 <- fls[i]
     data_ob <- create_weather_power_object_from_REFIT_dataset(path1,file1,file2)
   
@@ -281,27 +301,35 @@ REFTI <- function() {
     print(paste0("Power data,","start: ",index(first(data_ob$power_data))," end: ",index(last(data_ob$power_data))))
     print(paste0("Weather data,","start: ",index(first(data_ob$weather_data))," end: ",index(last(data_ob$weather_data))))
     # USED DATA FROM 2012-08-01' to 2012-10-30
-    merge_start_date <- as.POSIXct(strptime('2014-05-25',format = "%Y-%m-%d"))
-    merge_end_date   <- as.POSIXct(strptime('2014-08-30',format = "%Y-%m-%d"))
+    merge_start_date <- as.POSIXct(strptime('2014-06-01',format = "%Y-%m-%d"))
+    merge_end_date   <- as.POSIXct(strptime('2014-08-30 23:59:59',format = "%Y-%m-%d"))
     confirm_validity(data_ob, merge_start_date, merge_end_date)
     my_range <- paste0(merge_start_date,'/',merge_end_date)
     
     sampled_ob <- combine_energy_weather_ECOdata(data_ob,my_range)
-    train_data <- sampled_ob['2014-06-01/2014-06-20']
-    test_data <- sampled_ob['2014-06-21/2014-08-29']
+    train_data <- sampled_ob['2014-06-01/2014-06-30 23:59:59']
+    test_data <- sampled_ob['2014-07-01/2014-08-29 23:59:59']
     # regression_days <- sampled_ob['2014-07-10/2014-08-29']
     #find_regrassivedays_with_BIC(regression_days) # USED TO FIND NO. OF BEST HISTORICAL DAYS FOR REGRESSION
     
     #regression_days <- sampled_ob['2014-06-26/2014-07-30']
-    reg_result <- regression_procedure(train_data,test_data,hourwindow = 6)
-    print("Regression done")
+    #reg_result <- regression_procedure(train_data,test_data,hourwindow = 6)
+    #print("Regression done")
     
-    neural_result <- neuralnetwork_procedure(train_data,test_data,hourwindow = 6, daywindow = 15)
-    print("N-network done")
+    #neural_result <- neuralnetwork_procedure(train_data,test_data,hourwindow = 6, daywindow = 30)
+
+    #savedir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/refit_neural_results/"
+    #write.csv(fortify(neural_result),file=paste0(savedir,file1),row.names = FALSE)
     
-    l <- as.data.frame(plot_table(test_data,reg_result$fit,neural_result$fit,intent = "return"))
-    l$home <- strsplit(file1,'[.]')[[1]][1]
-    day_pred_result[[i]] <- l
+    #ESTABLISH GROUND TRUTH
+    savedir_gt <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/refit_gt_results/"
+    gt_data <- compute_groundtruth_main_refit(sampled_ob,past_days = 6,weekday_context = TRUE)
+   # write.csv(fortify(gt_data),file=paste0(savedir_gt,file1),row.names = FALSE)
+    
+    
+   # l <- as.data.frame(plot_table(test_data,reg_result$fit,neural_result$fit,intent = "return"))
+   # l$home <- strsplit(file1,'[.]')[[1]][1]
+   # day_pred_result[[i]] <- l
   }
   
   agg_result <- do.call(rbind,day_pred_result)

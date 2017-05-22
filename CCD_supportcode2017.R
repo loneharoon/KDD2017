@@ -1779,7 +1779,7 @@ note_f1_score_result <- function() {
   }
 }
 
-call_energy_savings_script_dataport<- function() {
+call_energy_savings_script_dataport_or_refit<- function() {
   # this script calls all files in directory and computes energy wastage for each home
   read_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_neural_results/"
   gt_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_gt_results/"
@@ -1797,7 +1797,8 @@ call_energy_savings_script_dataport<- function() {
     print(energy)
   }
 }
-compute_energy_savings <- function(neural_result,gt_data,anomalythreshold_len,anomalywindow) {
+
+compute_energy_savings <- function(neural_result,gt_data,anomalythreshold_len,anomaly_window) {
   # this function computes the extra units consumed by a house
   agg_data <- cbind(neural_result$upr,gt_data)
   colnames(agg_data) <- c("upr","actual_consump","gt_anom")
@@ -1806,6 +1807,7 @@ compute_energy_savings <- function(neural_result,gt_data,anomalythreshold_len,an
   df_days <- split.xts(agg_data,f="days",k=1) # daywise dataframe
   delta  <- 1 #counter
   true_pos <- list()
+  
   for( i in 1:length(df_days)) {
     # Loop j: Divides in terms of anomaly window [one hour or 2 hour etc]
     day_hour <- split_hourwise(df_days[[i]],windowsize = anomaly_window)
@@ -1819,6 +1821,7 @@ compute_energy_savings <- function(neural_result,gt_data,anomalythreshold_len,an
       } # if ends
     } # j ends
   } # day i ends
+  
   final_frame <- do.call(rbind,true_pos) 
   final_frame$difference <- final_frame$actual_consump - final_frame$upr
   # formula = sum(p*10*60)/3600
@@ -1827,3 +1830,136 @@ compute_energy_savings <- function(neural_result,gt_data,anomalythreshold_len,an
   extra_energy_units
   return(extra_energy_units)
 }
+
+compute_groundtruth_main_ampds <- function(data_ob,past_days = 6,weekday_context = TRUE){
+  # main function used to establish ground truth, i.e., weather day is anomalous or not
+  # data_ob : basically read from file CCD_maincode2017.r
+  # past_days: no. of past days to establish ground truth
+  power_df <- data_ob$power
+  power_df$weekday <- ifelse(!weekdays(index(power_df)) %in% c("Saturday","Sunday"),1,0)
+  observe_data <- power_df['2014-01-01/2014-01-31 23:59:59']
+  label_data <-  power_df['2014-02-01/2014-03-30 23:59:59']
+  #past_days = 6
+  #weekday_context = TRUE # meaning weekday will use only weekdays for prediction
+  ob_days <- split.xts(observe_data,f="days",k=1)
+  lab_days <- split.xts(label_data,f="days",k=1)
+  annotated_days <- list()
+  for(i in 1:length(lab_days)){
+    if(!weekday_context){
+      # simple case : without weekday and weekend divison
+      op_days <- tail(ob_days,past_days)
+      annotated_days[[i]] <- establish_anomaly_groundtruth(op_days,lab_days[[i]])
+      ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      # return(ob_days)
+    } else {
+      if(all(lab_days[[i]]$weekday==1)){ # is weekday
+        ind <- sapply(ob_days,function(x) unique(x$weekday))
+        ind_weekday <- which(ind == 1)
+        my_ob_days <- ob_days[tail(ind_weekday,past_days)]
+        annotated_days[[i]] <- establish_anomaly_groundtruth(my_ob_days,lab_days[[i]])
+        ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      } else { # if weekend
+        week_days_no <- floor(past_days * 0.50) # 50% of weekdays and remaining weekend day
+        week_end_no <-  floor(past_days * 0.50)
+        ind <- sapply(ob_days,function(x) unique(x$weekday))
+        ind_weekday <- which(ind == 1)
+        ind_weekend <- which(ind == 0)
+        temp_ind <- sort(c(tail(ind_weekday,week_days_no),tail(ind_weekend,week_end_no)))
+        my_ob_days <- ob_days[temp_ind]
+        annotated_days[[i]] <- establish_anomaly_groundtruth(my_ob_days,lab_days[[i]])
+        ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      }
+    } 
+  }
+  gt_data <- do.call(rbind,annotated_days)
+  return(gt_data)
+}
+
+compute_groundtruth_main_refit <- function(data_ob,past_days = 6,weekday_context = TRUE){
+  # main function used to establish ground truth, i.e., weather day is anomalous or not
+  # data_ob : basically read from file CCD_maincode2017.r
+  # past_days: no. of past days to establish ground truth
+  power_df <- data_ob$power
+  power_df$weekday <- ifelse(!weekdays(index(power_df)) %in% c("Saturday","Sunday"),1,0)
+  observe_data <- power_df['2014-06-01/2014-06-30 23:59:59']
+  label_data <-  power_df['2014-07-01/2014-08-29 23:59:59']
+  #past_days = 6
+  #weekday_context = TRUE # meaning weekday will use only weekdays for prediction
+  ob_days <- split.xts(observe_data,f="days",k=1)
+  lab_days <- split.xts(label_data,f="days",k=1)
+  annotated_days <- list()
+  for(i in 1:length(lab_days)){
+    if(!weekday_context){
+      # simple case : without weekday and weekend divison
+      op_days <- tail(ob_days,past_days)
+      annotated_days[[i]] <- establish_anomaly_groundtruth(op_days,lab_days[[i]])
+      ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      # return(ob_days)
+    } else {
+      if(all(lab_days[[i]]$weekday==1)){ # is weekday
+        ind <- sapply(ob_days,function(x) unique(x$weekday))
+        ind_weekday <- which(ind == 1)
+        my_ob_days <- ob_days[tail(ind_weekday,past_days)]
+        annotated_days[[i]] <- establish_anomaly_groundtruth(my_ob_days,lab_days[[i]])
+        ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      } else { # if weekend
+        week_days_no <- floor(past_days * 0.50) # 50% of weekdays and remaining weekend day
+        week_end_no <-  floor(past_days * 0.50)
+        ind <- sapply(ob_days,function(x) unique(x$weekday))
+        ind_weekday <- which(ind == 1)
+        ind_weekend <- which(ind == 0)
+        temp_ind <- sort(c(tail(ind_weekday,week_days_no),tail(ind_weekend,week_end_no)))
+        my_ob_days <- ob_days[temp_ind]
+        annotated_days[[i]] <- establish_anomaly_groundtruth(my_ob_days,lab_days[[i]])
+        ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      }
+    } 
+  }
+  gt_data <- do.call(rbind,annotated_days)
+  return(gt_data)
+}
+
+compute_groundtruth_main_eco <- function(data_ob,past_days = 6,weekday_context = TRUE){
+  # main function used to establish ground truth, i.e., weather day is anomalous or not
+  # data_ob : basically read from file CCD_maincode2017.r
+  # past_days: no. of past days to establish ground truth
+  power_df <- data_ob$power
+  power_df$weekday <- ifelse(!weekdays(index(power_df)) %in% c("Saturday","Sunday"),1,0)
+  observe_data <- power_df['2012-08-01/2012-08-30 23:59:59']
+  label_data <-  power_df['2012-09-01/2012-10-29 23:59:59']
+  #past_days = 6
+  #weekday_context = TRUE # meaning weekday will use only weekdays for prediction
+  ob_days <- split.xts(observe_data,f="days",k=1)
+  lab_days <- split.xts(label_data,f="days",k=1)
+  annotated_days <- list()
+  for(i in 1:length(lab_days)){
+    if(!weekday_context){
+      # simple case : without weekday and weekend divison
+      op_days <- tail(ob_days,past_days)
+      annotated_days[[i]] <- establish_anomaly_groundtruth(op_days,lab_days[[i]])
+      ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      # return(ob_days)
+    } else {
+      if(all(lab_days[[i]]$weekday==1)){ # is weekday
+        ind <- sapply(ob_days,function(x) unique(x$weekday))
+        ind_weekday <- which(ind == 1)
+        my_ob_days <- ob_days[tail(ind_weekday,past_days)]
+        annotated_days[[i]] <- establish_anomaly_groundtruth(my_ob_days,lab_days[[i]])
+        ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      } else { # if weekend
+        week_days_no <- floor(past_days * 0.50) # 50% of weekdays and remaining weekend day
+        week_end_no <-  floor(past_days * 0.50)
+        ind <- sapply(ob_days,function(x) unique(x$weekday))
+        ind_weekday <- which(ind == 1)
+        ind_weekend <- which(ind == 0)
+        temp_ind <- sort(c(tail(ind_weekday,week_days_no),tail(ind_weekend,week_end_no)))
+        my_ob_days <- ob_days[temp_ind]
+        annotated_days[[i]] <- establish_anomaly_groundtruth(my_ob_days,lab_days[[i]])
+        ob_days[[length(ob_days)+1]] <- lab_days[[i]] #update observation_days
+      }
+    } 
+  }
+  gt_data <- do.call(rbind,annotated_days)
+  return(gt_data)
+}
+

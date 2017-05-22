@@ -4,7 +4,7 @@ library(ggplot2)
 library(gtools)
 
 
-file1 <- "101.csv"
+file1 <- "6165.csv"
 #house_no <- "house1_10min.csv"
 path1 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/Dataport/without_car/9appliances/"
 print("reading mutated dataframe")
@@ -41,7 +41,12 @@ neural_result <- neuralnetwork_procedure(train_data,test_data,hourwindow = 6, da
  # print_single_prediction_method_table(test_data, method_result = neural_result$fit)
 #  plot_singlepredictor_graph(train_data,test_data,neural_result$fit)
 savedir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_neural_results/"
-write.csv(fortify(neural_result),file=paste0(savedir,file1),row.names = FALSE)
+#write.csv(fortify(neural_result),file=paste0(savedir,file1),row.names = FALSE)
+
+#ESTABLISH GROUND TRUTH
+savedir_gt <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_gt_results/"
+gt_data <- compute_groundtruth_main(data_ob,past_days = 6,weekday_context = TRUE)
+#write.csv(fortify(gt_data),file=paste0(savedir_gt,file1),row.names = FALSE)
 
   
 #recurrent_neural_procedure(train_data,test_data,hourwindow = 6, daywindow = 10)
@@ -59,10 +64,6 @@ res_neu[res_neu==TRUE]
 res_neu <- find_anomalous_status_without_rle_logic(test_data,result=neural_result,anomaly_window = 3,anomalythreshold_len = 10,rle_logic=FALSE)
 res_neu[res_neu==TRUE]
 
-#ESTABLISH GROUND TRUTH
-#savedir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_gt_results/"
-gt_data <- compute_groundtruth_main(data_ob,past_days = 6,weekday_context = TRUE)
-#write.csv(fortify(gt_data),file=paste0(savedir,file1),row.names = FALSE)
 
 
 # LOCALIZE ANOMALY PART
