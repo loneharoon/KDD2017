@@ -637,22 +637,24 @@ plot_singlepredictor_graph <- function(train_data, test_data,pred_result=NULL) {
 
 plot_anomalous_days_with_recent_normaldays_kdd_paper <- function() {
   library(plotly)
-  setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/plots/")
-  #path1 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/Dataport/without_car/9appliances/"
-  path1 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/ECO_dataset/"
+  #setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/plots/")
+  setwd("/Volumes/MacintoshHD2/Users/haroonr/Desktop/temp/")
+  path1 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/Dataport/without_car/9appliances/"
+  #path1 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/ECO_dataset/"
   
-  filename <- "house4_10min.csv"
-  inspec_date <- "2012-09-24"
-  sel_date <- "2012-08-13/2012-08-18"
+  filename <- "1105.csv"
+  inspec_date <- "2014-07-27"
+  sel_date <- "2014-07-11/2014-07-16" # last date comes highlighted
+  #sel_date <- "2014-07-26"
   df <- fread(paste0(path1,filename))
-  df_xts <- xts(df[,2:dim(df)[2]], fastPOSIXct(df$localminute)-19800)
+  df_xts <- xts(df[,2:dim(df)[2]], fasttime::fastPOSIXct(df$localminute)-19800)
   sel_data <- df_xts[sel_date]
   spec_data <- df_xts[inspec_date]
   plot_anomalous_day(filename,inspec_date,sel_data)
   daywise_visualization(spec_data)
   
   plot_anomalous_day <- function(filename,inspec_date,sel_data) {
-    use_data <- sel_data$total
+    use_data <- sel_data$use
     day_data <- split.xts(use_data,f="days",k=1)
     day_mat <- lapply(day_data,function(x) coredata(x))
     day_mat <- as.data.frame(do.call(cbind,day_mat))
@@ -662,7 +664,7 @@ plot_anomalous_days_with_recent_normaldays_kdd_paper <- function() {
     
     g <- ggplot(df_long,aes(timestamp,value/1000,group=variable,alpha=variable)) + geom_line()
     g <- g + scale_alpha_manual(values = c(rep(0.2,dim(day_mat)[2]-2),1))
-    g <- g + theme(legend.position="none",axis.text=element_text(color="black",size=10)) + scale_x_datetime(labels=date_format("%H:%M",tz="Asia/kolkata")) + labs(x= "Hour of the day", y = "Power (kW)")
+    g <- g + theme(legend.position="none",axis.text=element_text(color="black",size=10)) + scale_x_datetime(labels=scales::date_format("%H:%M",tz="Asia/kolkata")) + labs(x= "Hour of the day", y = "Power (kW)")
     savename <- paste0(inspec_date,"_",strsplit(filename,'[.]')[[1]][1],".pdf")
     ggsave(file = savename,width = 3, height = 3)
   }
@@ -683,6 +685,7 @@ plot_anomalous_days_with_recent_normaldays_kdd_paper <- function() {
     g <- g + geom_line() + scale_colour_manual(values=getPalette)
     ggplotly(g)
   }
+  
 }
 
 recurrent_neural_procedure <- function(train_data,test_data,hourwindow,daywindow){
@@ -1760,8 +1763,10 @@ note_f1_score_result <- function() {
   # gt_data: eithe compute it online or read from direc as shown below
   # neural_result: eith compute online or read from directory
   # test_data: read online using CCD_maincode2017.R
-  # 
-  file1="101.csv"
+  fls = c("101.csv","114.csv","115.csv","1105.csv","1037.csv")
+  home=list()
+  for (j in 1:length(fls)) {
+  file1 = fls[[j]]
   read_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_neural_results/"
   gt_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_gt_results/"
   neu_result <- fread(paste0(read_dir,file1))
@@ -1771,13 +1776,44 @@ note_f1_score_result <- function() {
   
   dat_range <- "2014-07-01/2014-07-30 23:59:59"
   anomaly_window = 1 #CHANGE IT: CONTROLS SIZE OF RUNNING WINDOW
+  res <- list()
   steps = seq(1,anomaly_window*6,1)  # S PARAMETER
   for(i in 1:length(steps)) {
-    res <- compute_accuracy_metrices(test_data[dat_range],
+    #res <- compute_accuracy_metrices(test_data[dat_range],
+    #                                 neural_result[dat_range],
+    #                                 gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window)
+    
+    res[[i]] <- compute_accuracy_metrices_ver2(test_data[dat_range],
                                      neural_result[dat_range],
-                                     gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window)
+                                     gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window,baseanom=3) 
+     
   }
-}
+  home[[j]] <- do.call(rbind,res)
+  }
+  
+  filename <- "july_S30_"
+  precision <- sapply(home,function(x) return(x$precison))
+  colnames(precision) <- paste0("Home_",1:NCOL(precision))
+  recall <- sapply(home,function(x) return(x$recall))
+  colnames(recall) <- paste0("Home_",1:NCOL(recall))
+  f_score <- sapply(home,function(x) return(x$f_score))
+  colnames(f_score) <- paste0("Home_",1:NCOL(f_score))
+  setwd("/Volumes/MacintoshHD2/Users/haroonr/Desktop/temp")
+  plot_confusion_matrix_values(precision,"Precision",filename)
+  plot_confusion_matrix_values(recall,"Recall",filename)
+  plot_confusion_matrix_values(f_score,"F1-score",filename)
+
+
+
+  plot_confusion_matrix_values <- function(df,y_label,filename) {
+    savename <- paste0(filename,y_label,".pdf")
+    row.names(df) <- seq(10,10*NROW(recall),10)
+    p_cast <- reshape2::melt(df)
+    g <- ggplot(p_cast,aes(Var1,value,col=Var2))+ geom_line() 
+    g <- g + theme(legend.position = c(0.5,0.2), legend.title = element_blank(),legend.text=element_text(size=10),axis.text=element_text(color="black",size=10))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1))
+    g
+    ggsave(savename,width=6,height=4,units="in")
+  }
 
 call_energy_savings_script_dataport_or_refit<- function() {
   # this script calls all files in directory and computes energy wastage for each home
@@ -1963,3 +1999,15 @@ compute_groundtruth_main_eco <- function(data_ob,past_days = 6,weekday_context =
   return(gt_data)
 }
 
+create_posix_timestamp <- function() {
+  library(data.table)
+  gt_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/ampds_gt_results/"
+  write_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Desktop/dataset_combine/ampds/"
+  fls <- list.files(gt_dir,pattern="*.csv")
+  for(i in 1:length(fls)){
+    file1 = fls[[i]]
+    df <- fread(paste0(gt_dir,file1))
+    df$Index <- as.numeric(fasttime::fastPOSIXct(df$Index)-19800)
+    colnames(df) <- c("timestamp","power","anomaly")
+    write.csv(df,file=paste0(write_dir,file1),row.names = FALSE)
+  }}

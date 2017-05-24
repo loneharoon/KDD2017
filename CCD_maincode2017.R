@@ -4,7 +4,7 @@ library(ggplot2)
 library(gtools)
 
 
-file1 <- "6165.csv"
+file1 <- "2845.csv"
 #house_no <- "house1_10min.csv"
 path1 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/Dataport/without_car/9appliances/"
 print("reading mutated dataframe")
@@ -44,8 +44,8 @@ savedir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes
 #write.csv(fortify(neural_result),file=paste0(savedir,file1),row.names = FALSE)
 
 #ESTABLISH GROUND TRUTH
-savedir_gt <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_gt_results/"
-gt_data <- compute_groundtruth_main(data_ob,past_days = 6,weekday_context = TRUE)
+#savedir_gt <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_gt_results/"
+#gt_data <- compute_groundtruth_main(data_ob,past_days = 6,weekday_context = TRUE)
 #write.csv(fortify(gt_data),file=paste0(savedir_gt,file1),row.names = FALSE)
 
   
