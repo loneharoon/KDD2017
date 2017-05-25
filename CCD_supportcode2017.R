@@ -1758,13 +1758,13 @@ compute_accuracy_metrices <- function(test_data,neural_result,gt_data,anomalythr
 } # method ends
 
 note_f1_score_result <- function() {
-  # i repeated this sinnpet to save accuracy results on my notebook
+  #  this sinnpet is used to get precision, recall and f_score
   # required objects:
   # gt_data: eithe compute it online or read from direc as shown below
   # neural_result: eith compute online or read from directory
   # test_data: read online using CCD_maincode2017.R
   fls = c("101.csv","114.csv","115.csv","1105.csv","1037.csv")
-  home=list()
+  home = list()
   for (j in 1:length(fls)) {
   file1 = fls[[j]]
   read_dir <- "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/results/dport_neural_results/"
@@ -1777,15 +1777,17 @@ note_f1_score_result <- function() {
   dat_range <- "2014-07-01/2014-07-30 23:59:59"
   anomaly_window = 1 #CHANGE IT: CONTROLS SIZE OF RUNNING WINDOW
   res <- list()
+  baseanom = 3
   steps = seq(1,anomaly_window*6,1)  # S PARAMETER
   for(i in 1:length(steps)) {
+    # with this ground truth varies
     #res <- compute_accuracy_metrices(test_data[dat_range],
     #                                 neural_result[dat_range],
     #                                 gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window)
-    
-    res[[i]] <- compute_accuracy_metrices_ver2(test_data[dat_range],
+    #with this ground truth remains fixed in different steps
+    res[[i]] <- compute_accuracy_metrices_version_2(test_data[dat_range],
                                      neural_result[dat_range],
-                                     gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window,baseanom=3) 
+                                     gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window,baseanom = 3) 
      
   }
   home[[j]] <- do.call(rbind,res)
@@ -1814,6 +1816,8 @@ note_f1_score_result <- function() {
     g
     ggsave(savename,width=6,height=4,units="in")
   }
+  
+}
 
 call_energy_savings_script_dataport_or_refit<- function() {
   # this script calls all files in directory and computes energy wastage for each home
@@ -2011,3 +2015,102 @@ create_posix_timestamp <- function() {
     colnames(df) <- c("timestamp","power","anomaly")
     write.csv(df,file=paste0(write_dir,file1),row.names = FALSE)
   }}
+
+cikm_paper_energy_wastage_table() <- function() {
+  
+  dataport <- c(26,28,24,36,4,89,29,23,38,34,27,80,51,55,78,84,101,85,63,44,42,34) #no. of units corres. to daraport hourse
+  refit <- c(27,58,39,63,24,31,58,17,27,67,80,9,68,26,50,83,96)
+  eco <- c(74,53,65)
+  ampds <- 93
+  summarize_energy(dataport)
+  summarize_energy(refit)
+  summarize_energy(eco)
+  
+  summarize_energy <- function(data){
+    s = sum(data)
+    min = min(data)
+    max = max(data)
+    avg = mean(data)
+    print(paste0("total:",s))
+    print(paste0("min:",min))
+    print(paste0("max:",max))
+    print(paste0("Average:",avg))
+  }
+  
+  data <- test_data$power
+  tot_units <- (sum(data)*10*60)/(3600*1000)
+  
+  data <- gt$power
+  (sum(data)*10*60)/(3600*1000)
+}
+
+compute_accuracy_metrices_version_2 <- function(test_data,neural_result,gt_data,anomalythreshold_len, anomaly_window,baseanom=3){
+  # this compute precision, recall and f_score by using test day data, prediction results, grouond truth, S and W  windows
+  # This differs from compute_accuracy_metrices function. In this version we keep groundtruth as fixed point whereas in the former version both GT and observations vary 
+  if(!index(last(gt_data)) >= index(last(test_data))) {
+    stop("Ground truth not collected till end as required,")
+  }
+  if(!index(first(gt_data)) <= index(first(test_data))) {
+    stop("Ground truth not collected from the start as required")
+  }
+  d_frame <- cbind(test_data$power,neural_result$upr)
+  d_frame$isanom <- ifelse(d_frame$power > d_frame$upr,1,0)
+  agg_frame <- cbind(d_frame,gt_data$anomaly)
+  time_ranges <- range(index(test_data)) # ensure continous data for all columns
+  agg_frame <- agg_frame[paste0(as.character(time_ranges[1]),'/',as.character(time_ranges[2]))]
+  colnames(agg_frame) <- c("actual_consump","upr","found_anom","gt_anom")
+  
+  df_days <- split.xts(agg_frame,f="days",k=1) # daywise dataframe
+  #pastanomaly_vec <- as.vector("numeric") # keeps track of possi
+  
+  tp = vector('numeric');tn = vector('numeric');fp = vector('numeric');fn = vector('numeric')
+  delta  <- 1 #counter
+  for( i in 1:length(df_days)) {
+    # Loop j: Divides in terms of anomaly window [one hour or 2 hour etc]
+    day_hour <- split_hourwise(df_days[[i]],windowsize = anomaly_window)
+    for( j in 1:length(day_hour)) {
+      gt_len <- table(day_hour[[j]]$gt_anom )
+      gt_len <- ifelse(is.na(as.numeric(gt_len['1'])),0,as.numeric(gt_len['1']))
+      ob_len <- table(day_hour[[j]]$found_anom)
+      ob_len <- ifelse(is.na(as.numeric(ob_len['1'])),0,as.numeric(ob_len['1']))
+      
+      if(ob_len >= anomalythreshold_len){
+        gt = day_hour[[j]]$gt_anom # ground truth
+        ob = day_hour[[j]]$found_anom
+        tp[delta] = sum(gt==ob & gt==1)
+        tn[delta] = sum(gt==ob & gt==0)
+        fn[delta] = sum(gt==1 & ob==0)
+        fp[delta] = sum(gt==0 & ob==1)
+        delta <- delta+1
+        print(paste0("case1",i,":",j))
+        #browser()
+      }else if(ob_len < anomalythreshold_len & gt_len >= baseanom) {
+        gt = day_hour[[j]]$gt_anom # ground truth
+        tp[delta] = 0
+        tn[delta] = 0
+        fn[delta] = sum(gt==1)
+        fp[delta] = 0
+        delta <- delta+1
+        print(paste0("case2",i,":",j))
+        #browser()
+      }else{ # algo worked perfectely
+        tp[delta] = 1
+        tn[delta] = 1
+        fn[delta] = 0
+        fp[delta] = 0
+        delta <- delta+1
+        print(paste0("case3",i,":",j))
+        # browser()
+      } # if ends
+    } # j ends
+  } # day i ends
+  #browser()
+  tp <- sum(tp)
+  fp <- sum(fp)
+  fn <- sum(fn)
+  precison <- round(tp/(tp+fp),2)
+  recall <- round(tp/(tp+fn),2)
+  f_score <- round(2 * (precison * recall)/ (precison + recall),2)
+  print(paste0(precison,":",recall,":",f_score))
+  return(data.frame(precison=precison,recall=recall,f_score=f_score))
+} # method ends
