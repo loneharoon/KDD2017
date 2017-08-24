@@ -2,7 +2,7 @@
 # data
 rm(list=ls())
 library(xts)
-librays(scales) # for changing x label format
+library(scales) # for changing x label format
 library(ggplot2)
 
 #### User defined functions####

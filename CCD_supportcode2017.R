@@ -1154,12 +1154,39 @@ sensitivity_analysis_KDD_BIC_value <- function(){
   df_selec <- df[,colnames(df) %in% c("c6","c11","c13","c17","rowind")]
   colnames(df_selec) <- c("Dataport","AMPds","ECO","REFIT","rowind")
   df_long <- reshape2::melt(df_selec,id.vars="rowind")
-  g <- ggplot(df_long,aes(rowind,value,group=variable,color=variable)) + geom_line()
+  colnames(df_long) <- c('rowind','Dataset','value')
+  #setwd("/Volumes/MacintoshHD2/Users/haroonr/Downloads/ADMA_paper/figures/")
+  g <- ggplot(df_long,aes(rowind,value,group=Dataset,color=Dataset)) + geom_line()
   g <- g +  labs(x = "Number of Days ", y=" BIC value") + theme_grey(base_size = 16) 
-  g <- g + theme(axis.text = element_text(color="Black"),legend.position = c(0.80,0.85),legend.title=element_blank(),legend.background = element_rect(fill = alpha('white',0.3)),legend.text = element_text(size = 10)) + scale_x_continuous(breaks = seq(1, 21, by = 2))
+  g <- g + theme(axis.text = element_text(color="Black"),legend.position = c(0.40,0.78),legend.background = element_rect(fill = alpha('white',0.3)),legend.text = element_text(size = 12)) + scale_x_continuous(breaks = seq(1, 21, by = 4)) 
+  g <- g + guides(col=guide_legend(ncol = 2))
   g
-  #  ggsave("BIC_threshold.pdf", width = 4.5, height = 4)
+  #ggsave("BIC_figure.pdf", width = 5, height = 4)
 }
+
+
+ADMA_paper_plots <- function() {
+  # REQUIRED csvS are in the same folder
+  df <- fread(file="/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/prediction_contexts.csv")
+  colnames(df) <- c("Dataset","Energy","Energy+Weekday/Weekend","Energy+Weather","All")
+  df_melt <- reshape2::melt(df,id.vars=c("Dataset"))
+  g <- ggplot(df_melt,aes(Dataset,value,fill=variable)) + geom_bar(position="dodge",stat="identity",width = 0.7)
+  g <- g +  labs(x="Dataset",y = "SMAPE",fill="Features") + theme_grey(base_size = 16) 
+  g <- g + theme(axis.text = element_text(color="Black",size=10),legend.position = c(0.42,0.3),legend.background = element_rect(fill = alpha('white',0.3)),legend.text = element_text(size = 12))
+  g
+  # ggsave("sensitivity_features_2.pdf", width = 5, height = 4) 
+  
+  df <- fread(file="/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/f1_values.csv")
+  df <- df[,2:7]
+  colnames(df) <- c('Dataset',colnames(df)[2:5],'Aniyama')
+  df_melt <- reshape2::melt(df,id.vars=c("Dataset"))
+  g <- ggplot(df_melt,aes(Dataset,value,fill=variable)) + geom_bar(position="dodge",stat="identity",width = 0.7)
+  g <- g +  labs(x="Dataset",y = "F1 score",fill="Method") + theme_grey(base_size = 16) 
+  g <- g + theme(axis.text = element_text(color="Black",size=10),legend.position = c(0.5,0.4),legend.background = element_rect(fill = alpha('white',0.3)),legend.text = element_text(size = 12)) + guides(fill=guide_legend(ncol = 2))
+  g
+  #ggsave("f_score_r_ver.pdf", width = 5, height = 4) 
+}
+
 
 f_score_kdd_paper <- function() {
   setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/figures/")
@@ -1702,7 +1729,7 @@ establish_anomaly_groundtruth <- function(tdata,tgt_data) {
 }
 
 compute_accuracy_metrices <- function(test_data,neural_result,gt_data,anomalythreshold_len, anomaly_window){
-  # this compute precision, recall and f_score by using test day data, prediction results, grouond truth, S and W  windows
+  # this compute precision, recall and f_score by using test day data, prediction results, ground truth, S and W  windows
   if(!index(last(gt_data)) >= index(last(test_data))) {
     stop("Ground truth not collected till end as required,")
   }
@@ -1763,7 +1790,11 @@ note_f1_score_result <- function() {
   # gt_data: eithe compute it online or read from direc as shown below
   # neural_result: eith compute online or read from directory
   # test_data: read online using CCD_maincode2017.R
-  fls = c("101.csv","114.csv","115.csv","1105.csv","1037.csv")
+  #fls = c("101.csv","114.csv","115.csv","1105.csv","1037.csv")
+ # fls = c("410.csv","457.csv","1069.csv","1086.csv","1105.csv")
+  #fls = c("1314.csv","2094.csv","2365.csv","2845.csv","3235.csv","4154.csv")
+  #fls = c("4298.csv","4910.csv","6165.csv","7276.csv","9201.csv","9340.csv","9931.csv")
+  fls = c("1314.csv","2094.csv","114.csv","4154.csv")
   home = list()
   for (j in 1:length(fls)) {
   file1 = fls[[j]]
@@ -1777,7 +1808,7 @@ note_f1_score_result <- function() {
   dat_range <- "2014-07-01/2014-07-30 23:59:59"
   anomaly_window = 1 #CHANGE IT: CONTROLS SIZE OF RUNNING WINDOW
   res <- list()
-  baseanom = 3
+  baseanom = 5
   steps = seq(1,anomaly_window*6,1)  # S PARAMETER
   for(i in 1:length(steps)) {
     # with this ground truth varies
@@ -1785,37 +1816,43 @@ note_f1_score_result <- function() {
     #                                 neural_result[dat_range],
     #                                 gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window)
     #with this ground truth remains fixed in different steps
-    res[[i]] <- compute_accuracy_metrices_version_2(test_data[dat_range],
+    res[[i]] <- compute_accuracy_metrices_version_3(test_data[dat_range],
                                      neural_result[dat_range],
-                                     gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window,baseanom = 3) 
+                                     gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window,baseanom) 
      
   }
   home[[j]] <- do.call(rbind,res)
   }
   
-  filename <- "july_S30_"
+  filename <- "july_1_hour_"
   precision <- sapply(home,function(x) return(x$precison))
   colnames(precision) <- paste0("Home_",1:NCOL(precision))
   recall <- sapply(home,function(x) return(x$recall))
   colnames(recall) <- paste0("Home_",1:NCOL(recall))
   f_score <- sapply(home,function(x) return(x$f_score))
   colnames(f_score) <- paste0("Home_",1:NCOL(f_score))
-  setwd("/Volumes/MacintoshHD2/Users/haroonr/Desktop/temp")
+  setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/TSG/fig2/")
   plot_confusion_matrix_values(precision,"Precision",filename)
   plot_confusion_matrix_values(recall,"Recall",filename)
   plot_confusion_matrix_values(f_score,"F1-score",filename)
 
 
+  
+  
+  
 
   plot_confusion_matrix_values <- function(df,y_label,filename) {
+    #good positions of legned: c(0.3,0.85),c(0.7,0.15)
     savename <- paste0(filename,y_label,".pdf")
     row.names(df) <- seq(10,10*NROW(recall),10)
     p_cast <- reshape2::melt(df)
-    g <- ggplot(p_cast,aes(Var1,value,col=Var2))+ geom_line() 
-    g <- g + theme(legend.position = c(0.5,0.2), legend.title = element_blank(),legend.text=element_text(size=10),axis.text=element_text(color="black",size=10))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1))
+    g <- ggplot(p_cast,aes(Var1,value,col=Var2))+ geom_line(size=0.6) + geom_point(aes(shape=Var2)) + theme_grey(base_size = 11) + guides(col=guide_legend(nrow = 2))
+    g <- g + theme(legend.position = c(0.7,0.15), legend.title = element_blank(),legend.text=element_text(size=10),axis.text=element_text(color="black",size=10),legend.background = element_rect(fill = alpha('white',0.3)))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1)) 
     g
-    ggsave(savename,width=6,height=4,units="in")
+   # ggsave(savename,width=5,height=2.5,units="in")
   }
+  
+  
   
 }
 
@@ -2090,6 +2127,82 @@ compute_accuracy_metrices_version_2 <- function(test_data,neural_result,gt_data,
         tn[delta] = 0
         fn[delta] = sum(gt==1)
         fp[delta] = 0
+        delta <- delta+1
+        print(paste0("case2",i,":",j))
+        #browser()
+      }else{ # algo worked perfectely
+        tp[delta] = 1
+        tn[delta] = 1
+        fn[delta] = 0
+        fp[delta] = 0
+        delta <- delta+1
+        print(paste0("case3",i,":",j))
+        # browser()
+      } # if ends
+    } # j ends
+  } # day i ends
+  #browser()
+  tp <- sum(tp)
+  fp <- sum(fp)
+  fn <- sum(fn)
+  precison <- round(tp/(tp+fp),2)
+  recall <- round(tp/(tp+fn),2)
+  f_score <- round(2 * (precison * recall)/ (precison + recall),2)
+  print(paste0(precison,":",recall,":",f_score))
+  return(data.frame(precison=precison,recall=recall,f_score=f_score))
+} # method ends
+
+compute_accuracy_metrices_version_3 <- function(test_data,neural_result,gt_data,anomalythreshold_len, anomaly_window,baseanom=3){
+  # this compute precision, recall and f_score by using test day data, prediction results, grouond truth, S and W  windows
+  # This differs from compute_accuracy_metrices_version_2 function, becauese its codes does not use variable baseanom. In this version we keep groundtruth as fixed point whereas in the former version both GT and observations vary 
+  if(!index(last(gt_data)) >= index(last(test_data))) {
+    stop("Ground truth not collected till end as required,")
+  }
+  if(!index(first(gt_data)) <= index(first(test_data))) {
+    stop("Ground truth not collected from the start as required")
+  }
+  d_frame <- cbind(test_data$power,neural_result$upr)
+  d_frame$isanom <- ifelse(d_frame$power > d_frame$upr,1,0)
+  agg_frame <- cbind(d_frame,gt_data$anomaly)
+  time_ranges <- range(index(test_data)) # ensure continous data for all columns
+  agg_frame <- agg_frame[paste0(as.character(time_ranges[1]),'/',as.character(time_ranges[2]))]
+  colnames(agg_frame) <- c("actual_consump","upr","found_anom","gt_anom")
+  
+  df_days <- split.xts(agg_frame,f="days",k=1) # daywise dataframe
+  #pastanomaly_vec <- as.vector("numeric") # keeps track of possi
+  
+  tp = vector('numeric');tn = vector('numeric');fp = vector('numeric');fn = vector('numeric')
+  delta  <- 1 #counter
+  for( i in 1:length(df_days)) {
+    # Loop j: Divides in terms of anomaly window [one hour or 2 hour etc]
+    day_hour <- split_hourwise(df_days[[i]],windowsize = anomaly_window)
+    for( j in 1:length(day_hour)) {
+      gt_len <- table(day_hour[[j]]$gt_anom )
+      gt_len <- ifelse(is.na(as.numeric(gt_len['1'])),0,as.numeric(gt_len['1']))
+      ob_len <- table(day_hour[[j]]$found_anom)
+      ob_len <- ifelse(is.na(as.numeric(ob_len['1'])),0,as.numeric(ob_len['1']))
+      
+      if(ob_len >= anomalythreshold_len){
+        gt = day_hour[[j]]$gt_anom # ground truth
+        ob = day_hour[[j]]$found_anom
+        tp[delta] = sum(gt==ob & gt==1)
+        tn[delta] = sum(gt==ob & gt==0)
+        fn[delta] = sum(gt==1 & ob==0)
+        fp[delta] = sum(gt==0 & ob==1)
+        delta <- delta+1
+        print(paste0("case1",i,":",j))
+        #browser()
+      }else if(ob_len < anomalythreshold_len & gt_len >= anomalythreshold_len) {
+        gt = day_hour[[j]]$gt_anom # ground truth
+        ob = day_hour[[j]]$found_anom
+        tp[delta] = sum(gt==ob & gt==1)
+        tn[delta] = sum(gt==ob & gt==0)
+        fn[delta] = sum(gt==1 & ob==0)
+        fp[delta] = sum(gt==0 & ob==1)
+        #tp[delta] = 0
+        #tn[delta] = 0
+        #fn[delta] = sum(gt==1)
+        #fp[delta] = 0
         delta <- delta+1
         print(paste0("case2",i,":",j))
         #browser()
