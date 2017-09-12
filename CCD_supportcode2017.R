@@ -1128,6 +1128,9 @@ sensitivity_analysis_KDD_window_size <- function() {
 }
 
 sensitivity_analysis_KDD_BIC_value <- function(){
+  library(data.table)
+  library(ggplot2)
+  library(xts)
   file1 <- "2094.csv"
   #house_no <- "house1_10min.csv"
   path1 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/Dataport/without_car/9appliances/"
@@ -1156,13 +1159,20 @@ sensitivity_analysis_KDD_BIC_value <- function(){
   df_long <- reshape2::melt(df_selec,id.vars="rowind")
   colnames(df_long) <- c('rowind','Dataset','value')
   #setwd("/Volumes/MacintoshHD2/Users/haroonr/Downloads/ADMA_paper/figures/")
-  g <- ggplot(df_long,aes(rowind,value,group=Dataset,color=Dataset)) + geom_line()
-  g <- g +  labs(x = "Number of Days ", y=" BIC value") + theme_grey(base_size = 16) 
-  g <- g + theme(axis.text = element_text(color="Black"),legend.position = c(0.40,0.78),legend.background = element_rect(fill = alpha('white',0.3)),legend.text = element_text(size = 12)) + scale_x_continuous(breaks = seq(1, 21, by = 4)) 
+  g <- ggplot(df_long,aes(rowind,value,group=Dataset,color=Dataset)) + geom_line(size=0.6) + geom_point(aes(shape=Dataset))
+  g <- g +  labs(x = "Number of Days ", y=" BIC value") + theme_grey(base_size = 11) 
+  g <- g + theme(axis.text = element_text(color="Black",size=10),legend.position = c(0.40,0.78),legend.background = element_rect(fill = alpha('white',0.3)),legend.text = element_text(size = 10)) + scale_x_continuous(breaks = seq(1, 21, by = 4)) 
   g <- g + guides(col=guide_legend(ncol = 2))
   g
-  #ggsave("BIC_figure.pdf", width = 5, height = 4)
+  setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/TSG/figures/")
+  # ggsave("BIC_figure_ver2.pdf", width = 6, height = 3,units="in")
 }
+
+
+g <- ggplot(p_cast,aes(Var1,value,col=Var2))+ geom_line(size=0.6) + geom_point(aes(shape=Var2)) + theme_grey(base_size = 11) + guides(col=guide_legend(nrow = 2))
+g <- g + theme(legend.position = c(0.7,0.15), legend.title = element_blank(),legend.text=element_text(size=10),axis.text=element_text(color="black",size=10),legend.background = element_rect(fill = alpha('white',0.3)))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1)) 
+g
+
 
 
 ADMA_paper_plots <- function() {
@@ -2227,3 +2237,38 @@ compute_accuracy_metrices_version_3 <- function(test_data,neural_result,gt_data,
   print(paste0(precison,":",recall,":",f_score))
   return(data.frame(precison=precison,recall=recall,f_score=f_score))
 } # method ends
+
+plot_basic_R_plots <- function() {
+  # we used this script to plot marked bar plots for the TSG paper
+  # accuracy coming with various approaches
+  df <- read.csv(file="/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/f1_values.csv")
+  df <- df[,2:7]
+  labels <-  df[,1]
+  mat <- as.matrix(t(df[,2:6]))
+  setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/TSG/figures/")
+  
+  #pdf("f_score_marked.pdf",width = 5,height = 4)
+  barplot(mat,beside = TRUE,col="black",font.axis=2,names.arg = labels,
+          density=c(10,10,20,10,30), angle = c(0,45,90,135,11), ylim=c(0,1),
+          ylab= "F1-score",xlab="Dataset")
+  legend("bottomright",legend = names(mat[,1]),density=c(10,10,20,10,30), angle = c(0,45,90,135,11),bg="white",box.col = "white")
+  dev.off()
+  
+  
+  # sensitivity plot of context variables
+  library(data.table)
+  df <- fread(file="/Volumes/MacintoshHD2/Users/haroonr/Dropbox/R_codesDirectory/R_Codes/KDD2017/prediction_contexts.csv")
+  colnames(df) <- c("Dataset","Energy","Energy+Weekday/Weekend","Energy+Weather","All")
+  
+  labels <-  df$Dataset
+  mat <- as.matrix(t(df[,2:5]))
+  setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/TSG/figures/")
+  
+  #pdf("sensitivity_marked.pdf",width = 5,height = 4)
+  barplot(mat,beside = TRUE,col="black",font.axis=2,names.arg = labels,
+          density=c(10,10,20,10), angle = c(0,45,90,135), ylim=c(0,0.5),
+          ylab= "SMAPE",xlab="Dataset")
+  legend("bottomright",legend = row.names(mat),density=c(10,10,20,10), angle = c(0,45,90,135),bg="white",box.col = "white")
+  dev.off()
+  
+}
