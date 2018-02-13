@@ -6,9 +6,9 @@ MUAD <- c(0.62,0.74,0.67,0.74) # 101.csv
 CCS <- c(0.66,0.76,0.68,0.74) # 114.csv
 TAD <- c(0.64,0.82,0.70,0.70) # 115.csv
 RAD <- c(0.69,0.80,0.68,0.76)
-Rimor <- c(0.80,0.89,0.76,0.84)
+RIMOR <- c(0.80,0.89,0.76,0.84)
 name <- c("Dataport","AMPds","ECO","REFIT")
-df <- data.frame(name,MUAD,CCS,TAD,RAD,Rimor)
+df <- data.frame(name,MUAD,CCS,TAD,RAD,RIMOR)
 # format data frame according to ggplot plotting library
 df_melt <- reshape2::melt(df,id = "name")
 
@@ -118,10 +118,10 @@ plot_confusion_matrix_values <- function(df,y_label,filename,savepath) {
   p_cast <- reshape2::melt(df)
   
   g <- ggplot(p_cast,aes(Var1,value,col=Var2))+ geom_line(size=0.3) + geom_point(aes(shape=Var2)) + guides(col=guide_legend(nrow = 2))
-  g <- g + theme(text= element_text(size = 9), legend.position = c(0.7,0.15), legend.title = element_blank(),legend.text=element_text(size=9),axis.text=element_text(color="black",size=9),legend.background = element_rect(fill = alpha('white',0.3)))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1)) 
+  g <- g + theme(text= element_text(size = 8), legend.position = c(0.7,0.15), legend.title = element_blank(),legend.text=element_text(size=8),axis.text=element_text(color="black",size=8),legend.background = element_rect(fill = alpha('white',0.3)))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1)) 
   g <- g + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
                  panel.background = element_blank(), axis.line = element_line(colour = "grey"))
   g
-  ggsave(savename,width=4,height=3,path=savepath,units="in")
+  ggsave(savename,width=2.9,height=2,path=savepath,units="in")
 }
 
