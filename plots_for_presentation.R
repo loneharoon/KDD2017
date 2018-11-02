@@ -126,19 +126,15 @@ data <- fread(paste0(dpath,meterid))
 data$timestamp <- as.POSIXct(data$timestamp,tz="Asia/Kolkata",origin = "1970-01-01")
 #data$timestamp <- fasttime::fastPOSIXct(data$timestamp)+19800
 data_xts <- xts(data[,2:5],data$timestamp)
-start_date <- as.POSIXct("2017-04-04")
-end_date <- as.POSIXct("2017-04-04 23:59:59")
-data_sub <- data[data$timestamp >= start_date & data$timestamp <= end_date,]
-data_sub_xts <- xts(data_sub$power,data_sub$timestamp)
 
-mydata <- data_xts['2014-06-22']
+mydata <- data_xts['2014-07-16']
 long_data <- reshape2::melt(fortify(mydata),id=c('Index'))
+bandata <- data.frame(index(mydata),mydata$lwr,mydata$upr)
+colnames(bandata) <- c("Index",'lwr','upr')
+df_sel <- data.frame(index(mydata),mydata$power,mydata$fit)
+colnames(df_sel) <- c("Index",'power','fit')
+long_data <- reshape2::melt(df_sel,id=c('Index'))
+h <- ggplot(bandata) + geom_ribbon(aes(x = Index, ymin = lwr, ymax = upr), alpha = 0.4)
+h <- h + geom_line(data = long_data, aes(Index, value, colour = variable))
+h
 
-g <- ggplot(long_data,aes(Index,value,color = variable )) + geom_line()
-g <- g + scale_x_datetime(labels = date_format("%H",tz="Asia/Kolkata"),
-                          date_breaks = "4 hours")
-g <- g + labs(x= "Day hour", y = "Power (W)") 
-g
-#+ scale_color_manual(values = c('black','blue'))
-#g <- g + theme(legend.title = element_blank(),axis.text = element_text(colour='black',size = 12),legend.position = c(0.5,0.8),legend.text = element_text(size = 12))
-g
