@@ -1169,9 +1169,6 @@ sensitivity_analysis_KDD_BIC_value <- function(){
 }
 
 
-g <- ggplot(p_cast,aes(Var1,value,col=Var2))+ geom_line(size=0.6) + geom_point(aes(shape=Var2)) + theme_grey(base_size = 11) + guides(col=guide_legend(nrow = 2))
-g <- g + theme(legend.position = c(0.7,0.15), legend.title = element_blank(),legend.text=element_text(size=10),axis.text=element_text(color="black",size=10),legend.background = element_rect(fill = alpha('white',0.3)))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1)) 
-g
 
 
 
@@ -1804,6 +1801,8 @@ note_f1_score_result <- function() {
  # fls = c("410.csv","457.csv","1069.csv","1086.csv","1105.csv")
   #fls = c("1314.csv","2094.csv","2365.csv","2845.csv","3235.csv","4154.csv")
   #fls = c("4298.csv","4910.csv","6165.csv","7276.csv","9201.csv","9340.csv","9931.csv")
+  library(data.table)
+  library(xts)
   fls = c("1314.csv","2094.csv","114.csv","4154.csv")
   home = list()
   for (j in 1:length(fls)) {
@@ -1816,55 +1815,69 @@ note_f1_score_result <- function() {
   gt_data <- xts(gt[,2:NCOL(gt)],fasttime::fastPOSIXct(gt$Index)-19800)
   
   dat_range <- "2014-07-01/2014-07-30 23:59:59"
-  anomaly_window = 1 #CHANGE IT: CONTROLS SIZE OF RUNNING WINDOW
+  anomaly_window = 2 #CHANGE IT: CONTROLS SIZE OF RUNNING WINDOW
   res <- list()
-  baseanom = 5
+  #baseanom = 5
   steps = seq(1,anomaly_window*6,1)  # S PARAMETER
+  test_data <- read_test_data(file1)
   for(i in 1:length(steps)) {
     # with this ground truth varies
     #res <- compute_accuracy_metrices(test_data[dat_range],
     #                                 neural_result[dat_range],
     #                                 gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window)
     #with this ground truth remains fixed in different steps
-    res[[i]] <- compute_accuracy_metrices_version_3(test_data[dat_range],
+   
+     res[[i]] <- compute_accuracy_metrices_version_3(test_data[dat_range],
                                      neural_result[dat_range],
-                                     gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window,baseanom) 
+                                     gt_data,anomalythreshold_len = steps[i],anomaly_window = anomaly_window) 
      
   }
   home[[j]] <- do.call(rbind,res)
   }
   
-  filename <- "july_1_hour_"
+  filename <- "july_2_hour_"
   precision <- sapply(home,function(x) return(x$precison))
   colnames(precision) <- paste0("Home_",1:NCOL(precision))
   recall <- sapply(home,function(x) return(x$recall))
   colnames(recall) <- paste0("Home_",1:NCOL(recall))
   f_score <- sapply(home,function(x) return(x$f_score))
   colnames(f_score) <- paste0("Home_",1:NCOL(f_score))
-  setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/TSG/fig2/")
-  plot_confusion_matrix_values(precision,"Precision",filename)
-  plot_confusion_matrix_values(recall,"Recall",filename)
-  plot_confusion_matrix_values(f_score,"F1-score",filename)
-
-
-  
-  
-  
-
-  plot_confusion_matrix_values <- function(df,y_label,filename) {
-    #good positions of legned: c(0.3,0.85),c(0.7,0.15)
-    savename <- paste0(filename,y_label,".pdf")
-    row.names(df) <- seq(10,10*NROW(recall),10)
-    p_cast <- reshape2::melt(df)
-    g <- ggplot(p_cast,aes(Var1,value,col=Var2))+ geom_line(size=0.6) + geom_point(aes(shape=Var2)) + theme_grey(base_size = 11) + guides(col=guide_legend(nrow = 2))
-    g <- g + theme(legend.position = c(0.7,0.15), legend.title = element_blank(),legend.text=element_text(size=10),axis.text=element_text(color="black",size=10),legend.background = element_rect(fill = alpha('white',0.3)))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1)) 
-    g
-   # ggsave(savename,width=5,height=2.5,units="in")
-  }
-  
-  
+  savepath= "/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/Submitted/KDD_2017/Ubicomp/fig_temp"
+  plot_confusion_matrix_values(precision,"Precision",filename,savepath)
+  plot_confusion_matrix_values(recall,"Recall",filename,savepath)
+  plot_confusion_matrix_values(f_score,"F1-score",filename,savepath)
   
 }
+
+
+plot_confusion_matrix_values <- function(df,y_label,filename,savepath) {
+  #good positions of legned: c(0.3,0.85),c(0.7,0.15)
+  savename <- paste0(filename,y_label,".pdf")
+  row.names(df) <- seq(10,10*NROW(recall),10)
+  p_cast <- reshape2::melt(df)
+  g <- ggplot(p_cast,aes(Var1,value,col=Var2))+ geom_line(size=0.6) + geom_point(aes(shape=Var2)) + theme_grey(base_size = 11) + guides(col=guide_legend(nrow = 2))
+  g <- g + theme(legend.position = c(0.7,0.15), legend.title = element_blank(),legend.text=element_text(size=10),axis.text=element_text(color="black",size=10),legend.background = element_rect(fill = alpha('white',0.3)))  + labs(x= "S value [minutes]", y = y_label) + scale_x_continuous(breaks=unique(p_cast$Var1)) 
+  g
+   ggsave(savename,width=4,height=3,path=savepath,units="in")
+}
+
+
+read_test_data <- function(file1){
+  #file1 <- "2845.csv"
+  path1 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/Dataport/without_car/9appliances/"
+  file2 <- "/Volumes/MacintoshHD2/Users/haroonr/Detailed_datasets/Dataport/weather/Austin2014/10minutely_Austinweather.csv"
+  data_ob <- create_weather_power_object_fromAggDataport(path1,file1,file2)
+  merge_start_date <- as.POSIXct(strptime('2014-06-06',format = "%Y-%m-%d"))
+  merge_end_date   <- as.POSIXct(strptime('2014-08-30',format = "%Y-%m-%d"))
+  confirm_validity(data_ob,merge_start_date,merge_end_date)
+  my_range<- paste0(merge_start_date,'/',merge_end_date)
+  sampled_ob <- combine_energy_weather(data_ob,my_range)
+  #sampled_ob <- combine_energy_weather(data_ob_eco,my_range) # FOR ECO DATASET
+  #train_data <- sampled_ob['2014-06-01/2014-06-30 23:59:59']
+  test_data <- sampled_ob['2014-07-01/2014-08-30 23:59:59']
+  return(test_data)
+}
+
 
 call_energy_savings_script_dataport_or_refit<- function() {
   # this script calls all files in directory and computes energy wastage for each home
@@ -2063,7 +2076,7 @@ create_posix_timestamp <- function() {
     write.csv(df,file=paste0(write_dir,file1),row.names = FALSE)
   }}
 
-cikm_paper_energy_wastage_table() <- function() {
+cikm_paper_energy_wastage_table <- function() {
   
   dataport <- c(26,28,24,36,4,89,29,23,38,34,27,80,51,55,78,84,101,85,63,44,42,34) #no. of units corres. to daraport hourse
   refit <- c(27,58,39,63,24,31,58,17,27,67,80,9,68,26,50,83,96)
@@ -2088,7 +2101,7 @@ cikm_paper_energy_wastage_table() <- function() {
   tot_units <- (sum(data)*10*60)/(3600*1000)
   
   data <- gt$power
-  (sum(data)*10*60)/(3600*1000)
+ # (sum(data)*10*60)/(3600*1000)
 }
 
 compute_accuracy_metrices_version_2 <- function(test_data,neural_result,gt_data,anomalythreshold_len, anomaly_window,baseanom=3){
@@ -2162,7 +2175,8 @@ compute_accuracy_metrices_version_2 <- function(test_data,neural_result,gt_data,
   return(data.frame(precison=precison,recall=recall,f_score=f_score))
 } # method ends
 
-compute_accuracy_metrices_version_3 <- function(test_data,neural_result,gt_data,anomalythreshold_len, anomaly_window,baseanom=3){
+
+compute_accuracy_metrices_version_3 <- function(test_data,neural_result,gt_data,anomalythreshold_len, anomaly_window){
   # this compute precision, recall and f_score by using test day data, prediction results, grouond truth, S and W  windows
   # This differs from compute_accuracy_metrices_version_2 function, becauese its codes does not use variable baseanom. In this version we keep groundtruth as fixed point whereas in the former version both GT and observations vary 
   if(!index(last(gt_data)) >= index(last(test_data))) {
@@ -2238,6 +2252,7 @@ compute_accuracy_metrices_version_3 <- function(test_data,neural_result,gt_data,
   return(data.frame(precison=precison,recall=recall,f_score=f_score))
 } # method ends
 
+
 plot_basic_R_plots <- function() {
   # we used this script to plot marked bar plots for the TSG paper
   # accuracy coming with various approaches
@@ -2247,7 +2262,7 @@ plot_basic_R_plots <- function() {
   mat <- as.matrix(t(df[,2:6]))
   setwd("/Volumes/MacintoshHD2/Users/haroonr/Dropbox/Writings/KDD_2017/TSG/figures/")
   
-  #pdf("f_score_marked.pdf",width = 5,height = 4)
+  pdf("f_score_marked.pdf",width = 5,height = 4)
   barplot(mat,beside = TRUE,col="black",font.axis=2,names.arg = labels,
           density=c(10,10,20,10,30), angle = c(0,45,90,135,11), ylim=c(0,1),
           ylab= "F1-score",xlab="Dataset")
